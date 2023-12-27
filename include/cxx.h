@@ -456,37 +456,7 @@ struct index_from_type
           compile_time_index<std::is_same_v<std::decay_t<Type>, Ts>...>()> {};
 
 template <typename First, typename... Remainder>
-struct visitor_type {
-  /// @brief The visit method which will pick the right type depending on the
-  /// `index` value.
-  template <typename Visitor>
-  constexpr static auto visit(Visitor &&visitor, std::size_t index,
-                              std::byte *data)
-      -> decltype(visitor(*reinterpret_cast<First *>(data))) {
-    if (index == 0) {
-      return visitor(*reinterpret_cast<First *>(data));
-    }
-    if constexpr (sizeof...(Remainder) != 0) {
-      return visitor_type<Remainder...>::visit(std::forward<Visitor>(visitor),
-                                               --index, data);
-    }
-    throw std::out_of_range("invalid");
-  }
-
-  template <typename Visitor>
-  constexpr static auto visit(Visitor &&visitor, std::size_t index,
-                              const std::byte *data)
-      -> decltype(visitor(*reinterpret_cast<const First *>(data))) {
-    if (index == 0) {
-      return visitor(*reinterpret_cast<const First *>(data));
-    }
-    if constexpr (sizeof...(Remainder) != 0) {
-      return visitor_type<Remainder...>::visit(std::forward<Visitor>(visitor),
-                                               --index, data);
-    }
-    throw std::out_of_range("invalid");
-  }
-};
+struct visitor_type;
 
 template <typename... Ts>
 struct attempt;
@@ -498,10 +468,10 @@ template <std::size_t I, typename... Ts>
 constexpr decltype(auto) get(const attempt<Ts...> &);
 
 template <typename Visitor, typename... Ts>
-constexpr auto visit(Visitor &&visitor, attempt<Ts...> &);
+constexpr decltype(auto) visit(Visitor &&visitor, attempt<Ts...> &);
 
 template <typename Visitor, typename... Ts>
-constexpr auto visit(Visitor &&visitor, const attempt<Ts...> &);
+constexpr decltype(auto) visit(Visitor &&visitor, const attempt<Ts...> &);
 
 template <typename... Ts>
 struct attempt {
@@ -743,7 +713,7 @@ struct attempt {
         : std::runtime_error{"The index should be " + std::to_string(index)} {}
   };
 
- public:
+public:
   template <std::size_t I>
   friend constexpr decltype(auto) get(attempt &variant) {
     variant.throw_if_invalid<I>();
@@ -756,12 +726,13 @@ struct attempt {
     return *reinterpret_cast<const type_from_index_t<I> *>(variant.t_buff);
   }
 
- private:
+private:
   template <std::size_t I>
   void throw_if_invalid() const {
     static_assert(I < (sizeof...(Ts)), "Invalid index");
 
-    if (m_Type != I) throw my_bad_variant_access(m_Type);
+    if (m_Type != I)
+      throw my_bad_variant_access(m_Type);
   }
 
   void destroy() {
@@ -778,29 +749,63 @@ struct attempt {
   // https://stackoverflow.com/questions/71828288/why-is-stdaligned-storage-to-be-deprecated-in-c23-and-what-to-use-instead
   alignas(Ts...) std::byte t_buff[std::max({sizeof(Ts)...})];
 
- public:
-  using this_visitor_type = visitor_type<Ts...>;
+  template <typename First, typename... Rs>
+  friend struct visitor_type;
+};
 
-  /// @brief Applies the visitor to the variant. Corresponds to the (3)
-  /// std::visit defintion.
-  template <typename Visitor>
-  friend constexpr auto visit(Visitor &&visitor, attempt &variant)
-      -> decltype(this_visitor_type::visit(std::forward<Visitor>(visitor),
-                                           variant.m_Type, variant.t_buff)) {
-    return this_visitor_type::visit(std::forward<Visitor>(visitor),
-                                    variant.m_Type, variant.t_buff);
+template <typename First, typename... Remainder>
+struct visitor_type {
+  template <typename Visitor, typename Variant>
+  constexpr static decltype(auto) visit(Visitor &&visitor, Variant &&variant) {
+    return visit(std::forward<Visitor>(visitor), variant.m_Type,
+                 variant.t_buff);
   }
 
-  /// @brief Applies the visitor to the variant. Corresponds to the (4)
-  /// std::visit defintion.
+  /// @brief The visit method which will pick the right type depending on the
+  /// `index` value.
   template <typename Visitor>
-  friend constexpr auto visit(Visitor &&visitor, const attempt &variant)
-      -> decltype(this_visitor_type::visit(std::forward<Visitor>(visitor),
-                                           variant.m_Type, variant.t_buff)) {
-    return this_visitor_type::visit(std::forward<Visitor>(visitor),
-                                    variant.m_Type, variant.t_buff);
+  constexpr static auto visit(Visitor &&visitor, std::size_t index,
+                              std::byte *data)
+      -> decltype(visitor(*reinterpret_cast<First *>(data))) {
+    if (index == 0) {
+      return visitor(*reinterpret_cast<First *>(data));
+    }
+    if constexpr (sizeof...(Remainder) != 0) {
+      return visitor_type<Remainder...>::visit(std::forward<Visitor>(visitor),
+                                               --index, data);
+    }
+    throw std::out_of_range("invalid");
+  }
+
+  template <typename Visitor>
+  constexpr static auto visit(Visitor &&visitor, std::size_t index,
+                              const std::byte *data)
+      -> decltype(visitor(*reinterpret_cast<const First *>(data))) {
+    if (index == 0) {
+      return visitor(*reinterpret_cast<const First *>(data));
+    }
+    if constexpr (sizeof...(Remainder) != 0) {
+      return visitor_type<Remainder...>::visit(std::forward<Visitor>(visitor),
+                                               --index, data);
+    }
+    throw std::out_of_range("invalid");
   }
 };
+
+/// @brief Applies the visitor to the variant. Corresponds to the (3)
+/// std::visit defintion.
+template <typename Visitor, typename... Ts>
+constexpr decltype(auto) visit(Visitor &&visitor, attempt<Ts...> &variant) {
+  return visitor_type<Ts...>::visit(std::forward<Visitor>(visitor), variant);
+}
+
+/// @brief Applies the visitor to the variant. Corresponds to the (4)
+/// std::visit defintion.
+template <typename Visitor, typename... Ts>
+constexpr decltype(auto) visit(Visitor &&visitor,
+                               const attempt<Ts...> &variant) {
+  return visitor_type<Ts...>::visit(std::forward<Visitor>(visitor), variant);
+}
 
 template <typename T, typename... Ts,
           typename = std::enable_if_t<
@@ -854,6 +859,12 @@ struct variant : public attempt<Ts...>, private allow_copy<Ts...> {
 
   using base::operator=;
 };
+
+template <typename Visitor, typename... Ts>
+constexpr decltype(auto) visit(Visitor &&visitor, attempt<Ts...> &);
+
+template <typename Visitor, typename... Ts>
+constexpr decltype(auto) visit(Visitor &&visitor, const attempt<Ts...> &);
 
 #endif
 
