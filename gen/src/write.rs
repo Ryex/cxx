@@ -58,9 +58,8 @@ fn write_macros(out: &mut OutFile, apis: &[Api]) {
 
 fn write_forward_declarations(out: &mut OutFile, apis: &[Api]) {
     let needs_forward_declaration = |api: &&Api| match api {
-        Api::Struct(_) | Api::CxxType(_) | Api::RustType(_) => true,
+        Api::Struct(_) | Api::CxxType(_) | Api::RustType(_) | Api::EnumUnnamed(_) => true,
         Api::Enum(enm, _) => !out.types.cxx.contains(&enm.name.rust),
-        Api::EnumUnnamed(_) => true,
         _ => false,
     };
 
