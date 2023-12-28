@@ -13,6 +13,7 @@ fn main() {
     let mut build = cxx_build::bridges(sources);
     build.file("tests.cc");
     build.std(cxxbridge_flags::STD);
+    build.flag_if_supported("/Zc:__cplusplus");
     build.warnings_into_errors(cfg!(deny_warnings));
     if cfg!(not(target_env = "msvc")) {
         build.define("CXX_TEST_INSTANTIATIONS", None);
