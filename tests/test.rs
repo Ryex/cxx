@@ -395,3 +395,12 @@ fn test_unwind_safe() {
     fn require_ref_unwind_safe<T: RefUnwindSafe>() {}
     require_ref_unwind_safe::<ffi::C>();
 }
+
+#[test]
+fn test_data_enums() {
+    let v1 = ffi::c_return_enum_improper(true);
+    assert!(matches!(v1, ffi::EnumImproper::AVal(2)));
+
+    // let v1 = ffi::c_return_enum_simple(true);
+    // assert!(matches!(v1, ffi::EnumSimple::AVal(false)));
+}
