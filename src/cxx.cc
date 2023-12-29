@@ -1,6 +1,7 @@
 #include "../include/cxx.h"
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <memory>
 
@@ -654,6 +655,15 @@ static_assert(
 static_assert(
     !std::is_constructible_v<duplicate_variant, std::in_place_index_t<2>, int>);
 
+// We're using the std::reference_wrapper if the enum holds a reference. The
+// standard however does not guarantee that the size of std::reference_wrapper
+// is the same size as a pointer (required to be compatible with Rust's
+// references). Therefore we check it at compile time.
+//
+// [1] https://en.cppreference.com/w/cpp/utility/functional/reference_wrapper
+// [2] https://doc.rust-lang.org/std/mem/fn.size_of.html#examples
+static_assert(sizeof(std::reference_wrapper<all_variant>) ==
+              sizeof(std::ptrdiff_t));
 
 } // namespace detail
 #endif
