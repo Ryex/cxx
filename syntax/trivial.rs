@@ -13,6 +13,7 @@ pub(crate) enum TrivialReason<'a> {
     VecElement,
     SliceElement { mutable: bool },
     UnpinnedMut(&'a ExternFn),
+    EnumVariant(&'a Enum),
 }
 
 pub(crate) fn required_trivial_reasons<'a>(
@@ -43,6 +44,14 @@ pub(crate) fn required_trivial_reasons<'a>(
                 for field in &strct.fields {
                     if let Type::Ident(ident) = &field.ty {
                         let reason = TrivialReason::StructField(strct);
+                        insist_extern_types_are_trivial(ident, reason);
+                    }
+                }
+            }
+            Api::EnumUnnamed(enm) => {
+                for variant in &enm.variants {
+                    if let Some(Type::Ident(ident)) = &variant.ty {
+                        let reason = TrivialReason::EnumVariant(enm);
                         insist_extern_types_are_trivial(ident, reason);
                     }
                 }
@@ -141,6 +150,7 @@ pub(crate) fn as_what<'a>(name: &'a Pair, reasons: &'a [TrivialReason]) -> impl 
             let mut slice_shared_element = false;
             let mut slice_mut_element = false;
             let mut unpinned_mut = Set::new();
+            let mut variant_of = Set::new();
 
             for reason in self.reasons {
                 match reason {
@@ -164,6 +174,9 @@ pub(crate) fn as_what<'a>(name: &'a Pair, reasons: &'a [TrivialReason]) -> impl 
                     }
                     TrivialReason::UnpinnedMut(efn) => {
                         unpinned_mut.insert(&efn.name.rust);
+                    }
+                    TrivialReason::EnumVariant(enm) => {
+                        variant_of.insert(&enm.name.rust);
                     }
                 }
             }
@@ -218,6 +231,13 @@ pub(crate) fn as_what<'a>(name: &'a Pair, reasons: &'a [TrivialReason]) -> impl 
                     article: "a",
                     desc: "non-pinned mutable reference in signature of",
                     set: &unpinned_mut,
+                });
+            }
+            if !variant_of.is_empty() {
+                clauses.push(Clause::Set {
+                    article: "a",
+                    desc: "variant of",
+                    set: &variant_of,
                 });
             }
 

@@ -761,9 +761,7 @@ struct variant_base {
   }
 
   constexpr std::size_t index() const noexcept { return m_Index; }
-  void swap(variant_base &other) {
-    // TODO
-  }
+  void swap(variant_base &other) noexcept;
 
   struct my_bad_variant_access : std::runtime_error {
     my_bad_variant_access(std::size_t index)
@@ -947,7 +945,7 @@ struct empty {};
 
 #endif
 
-#endif
+#endif // CXXBRIDGE1_RUST_VARIANT
 
 #ifndef CXXBRIDGE1_RUST_FN
 // https://cxx.rs/binding/fn.html

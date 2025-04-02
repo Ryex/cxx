@@ -39,6 +39,7 @@ pub(crate) struct Includes<'a> {
     pub string_view: bool,
     pub type_traits: bool,
     pub utility: bool,
+    pub variant: bool,
     pub vector: bool,
     pub basetsd: bool,
     pub sys_types: bool,
@@ -102,6 +103,7 @@ pub(super) fn write(out: &mut OutFile) {
         string_view,
         type_traits,
         utility,
+        variant,
         vector,
         basetsd,
         sys_types,
@@ -155,6 +157,11 @@ pub(super) fn write(out: &mut OutFile) {
     }
     if utility && !cxx_header {
         writeln!(out, "#include <utility>");
+    }
+    if variant && !cxx_header {
+        writeln!(out, "#if __cplusplus >= 201703L");
+        writeln!(out, "#include <variant>");
+        writeln!(out, "#endif");
     }
     if vector && !cxx_header {
         writeln!(out, "#include <vector>");

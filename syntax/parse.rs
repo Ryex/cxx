@@ -246,9 +246,7 @@ fn parse_enum_unnamed(cx: &mut Errors, mut item: ItemEnum, namespace: &Namespace
             Fields::Named(_) => {
                 return Err(Error::new_spanned(item, "Named variants are not supported"))
             }
-            Fields::Unit => {
-                (None, Visibility::Inherited)
-            }
+            Fields::Unit => (None, Visibility::Inherited),
             Fields::Unnamed(ref unnamed_variant) => {
                 // Having move than one unnamed field is also illegal since we can't
                 // represent it in c++.
@@ -270,22 +268,26 @@ fn parse_enum_unnamed(cx: &mut Errors, mut item: ItemEnum, namespace: &Namespace
             }
         };
 
-
         let mut cfg = CfgExpr::Unconditional;
         let mut doc = Doc::new();
+        let mut cxx_name = None;
 
-        // This is kind of stupid - there are no "names" in c++ for the variant
-        // but just indices...
-        let name = pair(Namespace::default(), &variant.ident, None, None);
+        // There are no "names" in c++ for the variant
+        // just indices...
+        // BUT we can alias the variant type using the name under the struct def
         let variant_attrs = attrs::parse(
             cx,
             mem::take(&mut variant.attrs),
             attrs::Parser {
                 cfg: Some(&mut cfg),
                 doc: Some(&mut doc),
+                cxx_name: Some(&mut cxx_name),
                 ..Default::default()
             },
         );
+
+        let name = pair(Namespace::default(), &variant.ident, cxx_name, None);
+
         variants.push(Variant {
             cfg,
             doc,

@@ -265,9 +265,9 @@ impl<'a> Types<'a> {
             unresolved_enums.retain(|ident| {
                 let mut retain = false;
                 for var in &types.enums[ident].variants {
-                    // If the ty is missing we're dealing with the C-style enum.
+                    // If the ty is missing we *may* dealing with the C-style enum.
                     let ty = match &var.ty {
-                        None => return false,
+                        None => continue,
                         Some(ty) => ty,
                     };
                     if match types.determine_improper_ctype(ty) {
