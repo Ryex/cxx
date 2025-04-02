@@ -377,7 +377,13 @@ fn write_enum_decl(out: &mut OutFile, enm: &Enum, opts: &CEnumOpts) {
     writeln!(out, ";");
 }
 
-fn write_enum_unnamed(out: &mut OutFile, enm: &Enum) {
+fn write_enum_unnamed<'a>(out: &mut OutFile<'a>, enm: &'a Enum) {
+    out.set_namespace(&enm.name.namespace);
+    out.builtin.rust_variant = true;
+    let guard = format!("CXXBRIDGE1_VARIANT_{}", enm.name.to_symbol());
+    writeln!(out, "#ifndef {}", guard);
+    writeln!(out, "#define {}", guard);
+    write_doc(out, "", &enm.doc);
     write!(out, "struct {} final : public ", enm.name.cxx);
 
     /// Writes something like `::rust::variant<type1, type2, ...>` with type1...
@@ -419,12 +425,46 @@ fn write_enum_unnamed(out: &mut OutFile, enm: &Enum) {
     write!(out, "  using base = ");
     write_variants(out, enm);
     writeln!(out, ";");
+
+    out.next_section();
+
+    for variant in &enm.variants {
+        write_doc(out, "  ", &variant.doc);
+        write!(out, "  using {} = ", variant.name.cxx);
+        match &variant.ty {
+            None => {
+                writeln!(out, "::rust::empty;");
+            }
+            Some(ty) => match ty {
+                Type::Ref(r) => {
+                    write!(out, "std::reference_wrapper<");
+                    write_type_space(out, &r.inner);
+                    if !r.mutable {
+                        write!(out, "const ");
+                    }
+                    writeln!(out, ">;");
+                }
+                _ => {
+                    write_type(out, ty);
+                    writeln!(out, ";");
+                }
+            },
+        }
+    }
+
+    out.next_section();
+
     writeln!(out, "  {}() = delete;", enm.name.cxx);
     writeln!(out, "  {0}(const {0}&) = default;", enm.name.cxx);
     writeln!(out, "  {0}({0}&&) = delete;", enm.name.cxx);
     writeln!(out, "  using base::base;");
     writeln!(out, "  using base::operator=;");
+    out.next_section();
+    out.include.type_traits = true;
+    writeln!(out, "  using IsRelocatable = ::std::true_type;");
+    out.next_section();
     writeln!(out, "}};");
+    writeln!(out, "#endif // {}", guard);
 }
 
 fn write_struct_using(out: &mut OutFile, ident: &Pair) {

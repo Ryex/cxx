@@ -10,6 +10,7 @@ pub(crate) struct Builtins<'a> {
     pub rust_slice: bool,
     pub rust_box: bool,
     pub rust_vec: bool,
+    pub rust_variant: bool,
     pub rust_fn: bool,
     pub rust_isize: bool,
     pub opaque: bool,
@@ -79,6 +80,18 @@ pub(super) fn write(out: &mut OutFile) {
         builtin.panic = true;
         builtin.rust_slice = true;
         builtin.unsafe_bitcopy_t = true;
+    }
+
+    if builtin.rust_variant {
+        include.algorithm = true;
+        include.cassert = true;
+        include.cstddef = true;
+        include.cstdint = true;
+        include.cstring = true;
+        include.new = true;
+        include.stdexcept = true;
+        include.type_traits = true;
+        include.variant = true;
     }
 
     if builtin.rust_slice {
@@ -187,6 +200,7 @@ pub(super) fn write(out: &mut OutFile) {
         ifndef::write(out, builtin.unsafe_bitcopy_t, "CXXBRIDGE1_RUST_BITCOPY_T");
         ifndef::write(out, builtin.unsafe_bitcopy, "CXXBRIDGE1_RUST_BITCOPY");
         ifndef::write(out, builtin.rust_vec, "CXXBRIDGE1_RUST_VEC");
+        ifndef::write(out, builtin.rust_variant, "CXXBRIDGE1_RUST_VARIANT");
         ifndef::write(out, builtin.rust_fn, "CXXBRIDGE1_RUST_FN");
         ifndef::write(out, builtin.rust_error, "CXXBRIDGE1_RUST_ERROR");
         ifndef::write(out, builtin.rust_isize, "CXXBRIDGE1_RUST_ISIZE");
